@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Translator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4f46e5;
+            text-align: center;
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            background-color: #2a2a2a;
+            color: #fff;
+            box-sizing: border-box;
+        }
+        .row {
+            display: flex;
+            gap: 15px;
+        }
+        .row .form-group {
+            flex: 1;
+        }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #4338ca;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #outputLog {
+            background-color: #151515;
+            padding: 15px;
+            border-radius: 4px;
+            min-height: 50px;
+            white-space: pre-wrap;
+            border-left: 4px solid #4f46e5;
+        }
+        .status {
+            font-style: italic;
+            color: #aaa;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Chaos Translator</h1>
+
+    <div class="card">
+        <div class="form-group">
+            <label for="inputText">Input Text / Word:</label>
+            <input type="text" id="inputText" placeholder="Type something to corrupt...">
+        </div>
+
+        <div class="row">
+            <div class="form-group">
+                <label for="iterations">Translation Steps:</label>
+                <input type="number" id="iterations" value="5" min="1" max="20">
+            </div>
+            <div class="form-group">
+                <label for="wordChance">Word Chaos Chance (%):</label>
+                <input type="number" id="wordChance" value="30" min="0" max="100">
+            </div>
+        </div>
+
+        <div class="form-group toggle-container">
+            <input type="checkbox" id="improvedOutput" checked>
+            <label for="improvedOutput">Enable Improved Output</label>
+        </div>
+
+        <button id="translateBtn" onclick="startChaos()">Translate into Chaos</button>
+    </div>
+
+    <div class="card">
+        <h2>Result</h2>
+        <div id="status" class="status"></div>
+        <div id="outputLog">Your chaotic result will appear here...</div>
+    </div>
+
+    <script>
+        // A wide list of ISO language codes for chaotic jumping
+        const languages = [
+            'en', 'es', 'fr', 'de', 'it', 'ja', 'ko', 'zh-CN', 'ru', 'ar', 
+            'pt', 'hi', 'nl', 'pl', 'tr', 'sv', 'vi', 'el', 'he', 'th',
+            'fi', 'no', 'cs', 'uk', 'id', 'ms', 'ro', 'hu', 'da', 'fa'
+        ];
+
+        // Random pool of words to inject if "Improved Output" is on
+        const chaosWords = [
+            "banana", "quantum", "unexpectedly", "glitch", "void", "spicy", 
+            "waffles", "confusion", "algorithm", "entropy", "sublime", "oof",
+            "velociraptor", "property", "signals", "eclipse", "gravy", "paradox"
+        ];
+
+        async function translateText(text, fromLang, toLang) {
+            try {
+                // Using a reliable free translation engine API endpoint
+                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("API Limit or Network Error");
+                const data = await response.json();
+                return data[0][0][0]; // Extracting the translated string text
+            } catch (err) {
+                console.error(err);
+                return text; // Fallback to current text if step fails
+            }
+        }
+
+        function injectChaos(text, chance) {
+            let words = text.split(" ");
+            // Roll the dice to see if we add a word
+            if (Math.random() * 100 < chance) {
+                const randomWord = chaosWords[Math.floor(Math.random() * chaosWords.length)];
+                // Insert the word at a random position in the sentence
+                const insertIndex = Math.floor(Math.random() * (words.length + 1));
+                words.splice(insertIndex, 0, randomWord);
+            }
+            return words.join(" ");
+        }
+
+        async function startChaos() {
+            const input = document.getElementById('inputText').value.trim();
+            const iterations = parseInt(document.getElementById('iterations').value) || 3;
+            const wordChance = parseInt(document.getElementById('wordChance').value) || 0;
+            const useChaos = document.getElementById('improvedOutput').checked;
+            
+            const btn = document.getElementById('translateBtn');
+            const statusDiv = document.getElementById('status');
+            const outputDiv = document.getElementById('outputLog');
+
+            if (!input) {
+                alert("Please enter some text first!");
+                return;
+            }
+
+            // UI updates
+            btn.disabled = true;
+            btn.innerText = "Processing Chaos...";
+            
+            let currentText = input;
+            let currentLang = 'auto'; // Let API detect original language
+
+            for (let i = 0; i < iterations; i++) {
+                // Pick a random target language different from current if possible
+                let targetLang = languages[Math.floor(Math.random() * languages.length)];
+                
+                statusDiv.innerText = `Step ${i + 1}/${iterations}: Translating to [${targetLang.toUpperCase()}]...`;
+                
+                // 1. Translate
+                currentText = await translateText(currentText, currentLang, targetLang);
+                
+                // 2. Secretly inject random words if conditions met
+                if (useChaos) {
+                    currentText = injectChaos(currentText, wordChance);
+                }
+
+                currentLang = targetLang;
+                // Tiny pause to avoid hitting rate limits too aggressively
+                await new Promise(resolve => setTimeout(resolve, 200)); 
+            }
+
+            // Final step: Translate back to English so the user can read the chaos
+            statusDiv.innerText = "Finalizing back to English...";
+            currentText = await translateText(currentText, currentLang, 'en');
+
+            // Render result
+            outputDiv.innerText = currentText;
+            statusDiv.innerText = "Done!";
+            btn.disabled = false;
+            btn.innerText = "Translate into Chaos";
+        }
+    </script>
+</body>
+</html>
