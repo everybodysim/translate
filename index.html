@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Translator</title>
+    <title>Chaos Translator Pro</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #121212;
             color: #e0e0e0;
             padding: 20px;
-            max-width: 600px;
+            max-width: 650px;
             margin: 0 auto;
         }
         h1 {
             color: #4f46e5;
             text-align: center;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 25px;
+            font-size: 14px;
         }
         .card {
             background-color: #1e1e1e;
@@ -32,7 +39,7 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        input[type="text"], input[type="number"], select {
+        textarea, input[type="number"], select {
             width: 100%;
             padding: 10px;
             border-radius: 4px;
@@ -40,6 +47,11 @@
             background-color: #2a2a2a;
             color: #fff;
             box-sizing: border-box;
+            font-family: inherit;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
         }
         .row {
             display: flex;
@@ -64,6 +76,7 @@
             font-size: 16px;
             cursor: pointer;
             transition: background 0.2s;
+            font-weight: bold;
         }
         button:hover {
             background-color: #4338ca;
@@ -76,41 +89,44 @@
             background-color: #151515;
             padding: 15px;
             border-radius: 4px;
-            min-height: 50px;
+            min-height: 60px;
             white-space: pre-wrap;
             border-left: 4px solid #4f46e5;
+            line-height: 1.5;
         }
         .status {
             font-style: italic;
-            color: #aaa;
+            color: #a78bfa;
             margin-top: 5px;
+            font-weight: 500;
         }
     </style>
 </head>
 <body>
 
-    <h1>Chaos Translator</h1>
+    <h1>Chaos Translator Pro</h1>
+    <div class="subtitle">Parallel Processing Engine with Live Word Dictionary Sync</div>
 
     <div class="card">
         <div class="form-group">
-            <label for="inputText">Input Text / Word:</label>
-            <input type="text" id="inputText" placeholder="Type something to corrupt...">
+            <label for="inputText">Input Text / Word / Paragraph:</label>
+            <textarea id="inputText" placeholder="Type text to run through the chaotic translator array..."></textarea>
         </div>
 
         <div class="row">
             <div class="form-group">
-                <label for="iterations">Translation Steps:</label>
-                <input type="number" id="iterations" value="5" min="1" max="20">
+                <label for="iterations">Translation Steps (Depth):</label>
+                <input type="number" id="iterations" value="8" min="1" max="50">
             </div>
             <div class="form-group">
                 <label for="wordChance">Word Chaos Chance (%):</label>
-                <input type="number" id="wordChance" value="30" min="0" max="100">
+                <input type="number" id="wordChance" value="35" min="0" max="100">
             </div>
         </div>
 
         <div class="form-group toggle-container">
             <input type="checkbox" id="improvedOutput" checked>
-            <label for="improvedOutput">Enable Improved Output</label>
+            <label for="improvedOutput">Enable "Improved Output" (Inject Random Dictionary Words)</label>
         </div>
 
         <button id="translateBtn" onclick="startChaos()">Translate into Chaos</button>
@@ -123,40 +139,54 @@
     </div>
 
     <script>
-        // A wide list of ISO language codes for chaotic jumping
+        // Large list of ISO language codes for maximum linguistic drift
         const languages = [
             'en', 'es', 'fr', 'de', 'it', 'ja', 'ko', 'zh-CN', 'ru', 'ar', 
             'pt', 'hi', 'nl', 'pl', 'tr', 'sv', 'vi', 'el', 'he', 'th',
             'fi', 'no', 'cs', 'uk', 'id', 'ms', 'ro', 'hu', 'da', 'fa'
         ];
 
-        // Random pool of words to inject if "Improved Output" is on
-        const chaosWords = [
+        // Backup words pool in case the free web dictionary API drops offline
+        const backupChaosWords = [
             "banana", "quantum", "unexpectedly", "glitch", "void", "spicy", 
             "waffles", "confusion", "algorithm", "entropy", "sublime", "oof",
-            "velociraptor", "property", "signals", "eclipse", "gravy", "paradox"
+            "velociraptor", "property", "signals", "eclipse", "gravy", "paradox",
+            "spaghetti", "nuclei", "bamboozled", "unstable", "pixels", "cybernetic"
         ];
 
-        async function translateText(text, fromLang, toLang) {
+        // Fetches a real-time list of random words from a public API
+        async function fetchLiveDictionaryWords(count) {
             try {
-                // Using a reliable free translation engine API endpoint
-                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`;
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("API Limit or Network Error");
-                const data = await response.json();
-                return data[0][0][0]; // Extracting the translated string text
-            } catch (err) {
-                console.error(err);
-                return text; // Fallback to current text if step fails
+                // Fetching multiple words from the dictionary service
+                const response = await fetch(`https://random-word-api.herokuapp.com/word?number=${count}`);
+                if (!response.ok) throw new Error("Dictionary API Throttle");
+                const words = await response.json();
+                return words && words.length > 0 ? words : backupChaosWords;
+            } catch (e) {
+                console.warn("Using offline local backup dictionary words pool.", e);
+                return backupChaosWords;
             }
         }
 
-        function injectChaos(text, chance) {
-            let words = text.split(" ");
-            // Roll the dice to see if we add a word
+        // Standard robust Google Web Translate single request
+        async function translateText(text, fromLang, toLang) {
+            try {
+                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Google Rate Limit");
+                const data = await response.json();
+                return data[0].map(item => item[0]).join('');
+            } catch (err) {
+                console.error(err);
+                return text; // Prompt recovery fallback
+            }
+        }
+
+        // Injects chaos words directly into a string array index
+        function injectChaos(text, chance, dictionaryPool) {
+            let words = text.split(/\s+/);
             if (Math.random() * 100 < chance) {
-                const randomWord = chaosWords[Math.floor(Math.random() * chaosWords.length)];
-                // Insert the word at a random position in the sentence
+                const randomWord = dictionaryPool[Math.floor(Math.random() * dictionaryPool.length)];
                 const insertIndex = Math.floor(Math.random() * (words.length + 1));
                 words.splice(insertIndex, 0, randomWord);
             }
@@ -165,7 +195,7 @@
 
         async function startChaos() {
             const input = document.getElementById('inputText').value.trim();
-            const iterations = parseInt(document.getElementById('iterations').value) || 3;
+            const iterations = parseInt(document.getElementById('iterations').value) || 5;
             const wordChance = parseInt(document.getElementById('wordChance').value) || 0;
             const useChaos = document.getElementById('improvedOutput').checked;
             
@@ -178,39 +208,50 @@
                 return;
             }
 
-            // UI updates
             btn.disabled = true;
-            btn.innerText = "Processing Chaos...";
-            
-            let currentText = input;
-            let currentLang = 'auto'; // Let API detect original language
+            btn.innerText = "Processing...";
+            statusDiv.innerText = "Synchronizing with web dictionary and analyzing structure...";
 
-            for (let i = 0; i < iterations; i++) {
-                // Pick a random target language different from current if possible
-                let targetLang = languages[Math.floor(Math.random() * languages.length)];
-                
-                statusDiv.innerText = `Step ${i + 1}/${iterations}: Translating to [${targetLang.toUpperCase()}]...`;
-                
-                // 1. Translate
-                currentText = await translateText(currentText, currentLang, targetLang);
-                
-                // 2. Secretly inject random words if conditions met
-                if (useChaos) {
-                    currentText = injectChaos(currentText, wordChance);
-                }
-
-                currentLang = targetLang;
-                // Tiny pause to avoid hitting rate limits too aggressively
-                await new Promise(resolve => setTimeout(resolve, 200)); 
+            // 1. Fetch random words upfront to reduce network latency during translation loops
+            let dynamicDictionary = backupChaosWords;
+            if (useChaos) {
+                // Request 30 fresh random words from the internet
+                dynamicDictionary = await fetchLiveDictionaryWords(30);
             }
 
-            // Final step: Translate back to English so the user can read the chaos
-            statusDiv.innerText = "Finalizing back to English...";
-            currentText = await translateText(currentText, currentLang, 'en');
+            // 2. Parse text into individual sentence chunks to bypass line blocks
+            const sentences = input.match(/[^.!?]+[.!?]?/g) || [input];
+            statusDiv.innerText = `Running ${sentences.length} processing array(s) concurrently...`;
 
-            // Render result
-            outputDiv.innerText = currentText;
-            statusDiv.innerText = "Done!";
+            // 3. Launch isolated loop pipeline for each sentence stream simultaneously
+            async function processSentenceChain(sentence) {
+                let currentText = sentence.trim();
+                let currentLang = 'auto';
+
+                for (let i = 0; i < iterations; i++) {
+                    let targetLang = languages[Math.floor(Math.random() * languages.length)];
+                    currentText = await translateText(currentText, currentLang, targetLang);
+                    
+                    if (useChaos) {
+                        currentText = injectChaos(currentText, wordChance, dynamicDictionary);
+                    }
+                    currentLang = targetLang;
+                }
+                // Translate the resulting language mutation back to readable English
+                return await translateText(currentText, currentLang, 'en');
+            }
+
+            try {
+                // Run asynchronous loops simultaneously via event loops
+                const chaoticResults = await Promise.all(sentences.map(s => processSentenceChain(s)));
+                
+                outputDiv.innerText = chaoticResults.join(" ");
+                statusDiv.innerText = "Chaos synthesis complete!";
+            } catch (error) {
+                statusDiv.innerText = "Runtime pipeline interruption.";
+                console.error(error);
+            }
+
             btn.disabled = false;
             btn.innerText = "Translate into Chaos";
         }
